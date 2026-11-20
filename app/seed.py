@@ -1,3 +1,4 @@
+import os
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 from .models import Booking, Favorite, Message, Property, Report, Review, Stay, User
 from .security import hash_password
 
-DEMO_PASSWORD = "Moagi123!"
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "Moagi123!")
 
 U = "https://images.unsplash.com/"
 P = "?auto=format&fit=crop&w=1400&q=80"

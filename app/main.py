@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
-from .config import ALLOWED_ORIGINS, ENV, UPLOAD_DIR, WEB_DIST
+from .config import ALLOWED_ORIGINS, ENV, IS_PROD, UPLOAD_DIR, WEB_DIST
 from .database import Base, SessionLocal, engine
 from .routers import (
     admin,
@@ -47,12 +47,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MOAGI API", version="2.0.0", lifespan=lifespan)
 
+allowed_origins = list(ALLOWED_ORIGINS)
+if not IS_PROD:
+    allowed_origins += ["http://localhost:5173", "http://127.0.0.1:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS + ["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -64,15 +68,18 @@ async def origin_guard(request: Request, call_next):
             host = request.headers.get("host", "")
             parsed = urlparse(origin)
             allowed = {host} | {urlparse(o).netloc for o in ALLOWED_ORIGINS}
-            if parsed.netloc not in allowed and parsed.netloc not in (
-                "localhost:5173",
-                "127.0.0.1:5173",
-            ):
+            local = set() if IS_PROD else {"localhost:5173", "127.0.0.1:5173"}
+            if parsed.netloc not in allowed and parsed.netloc not in local:
                 return JSONResponse({"detail": "Invalid request origin."}, status_code=403)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; connect-src 'self' https:; font-src 'self' data:; frame-ancestors 'none'"
+    )
     if ENV == "production":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response

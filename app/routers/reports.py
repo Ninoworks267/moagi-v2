@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from ..deps import AdminRequired, DbSession, UserRequired
 from ..models import Property, Report, User
 from ..schemas import ReportIn, ReportOut, ReportStatusIn
+
+logger = logging.getLogger("moagi.security")
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -51,5 +55,6 @@ def update_report(report_id: int, data: ReportStatusIn, db: DbSession, user: Adm
         raise HTTPException(404, "Report not found.")
     report.status = data.status
     db.commit()
+    logger.info("report_status_change report_id=%s status=%s admin=%s", report_id, data.status, user.id)
     db.refresh(report)
     return report

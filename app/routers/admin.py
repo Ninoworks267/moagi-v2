@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter
 from sqlalchemy import func
 
 from ..deps import AdminRequired, DbSession
 from ..models import Booking, Message, Property, Report, Review, Stay, User
 from ..schemas import UserPrivate
+
+logger = logging.getLogger("moagi.security")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

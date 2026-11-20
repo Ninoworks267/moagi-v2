@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -32,6 +33,17 @@ class RegisterIn(BaseModel):
     email: EmailStr
     phone: str = Field(min_length=6, max_length=40)
     password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def strong_password(cls, value: str) -> str:
+        if not re.search(r"[A-Z]", value):
+            raise ValueError("Password must include an uppercase letter.")
+        if not re.search(r"[a-z]", value):
+            raise ValueError("Password must include a lowercase letter.")
+        if not re.search(r"\d", value):
+            raise ValueError("Password must include a number.")
+        return value
     role: Literal["tenant", "landlord"]
     location: str = Field(min_length=1, max_length=120)
     citizenship: str = "Botswana"
@@ -63,8 +75,8 @@ class PropertyIn(BaseModel):
     property_type: str = "House"
     category: str = "all"
     description: str = ""
-    photos: list[str] = []
-    amenities: list[str] = []
+    photos: list[str] = Field(default_factory=list, max_length=10)
+    amenities: list[str] = Field(default_factory=list, max_length=30)
     furnished: bool = False
     parking: bool = False
     water_included: bool = False
