@@ -20,10 +20,12 @@ function detailMessage(data: unknown, fallback: string): string {
   return fallback;
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
+
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options;
   const isForm = body instanceof FormData;
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(`${API_BASE}/api${path}`, {
     credentials: "include",
     ...rest,
     headers: {
