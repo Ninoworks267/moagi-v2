@@ -1,27 +1,54 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEB_DIST = BASE_DIR / "web" / "dist"
-UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
 
-ENV = os.getenv("ENV", "development")
+
+def _get(name: str, default: str = "") -> str:
+    return os.getenv(name, default).strip()
+
+
+ENV = _get("ENV", "development").lower()
+if ENV not in {"development", "test", "production"}:
+    raise RuntimeError(f"ENV must be development, test or production (got {ENV!r}).")
 IS_PROD = ENV == "production"
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'moagi.db'}")
-SECRET_KEY = os.getenv("MOAGI_SECRET", "")
+UPLOAD_DIR = Path(_get("UPLOAD_DIR") or BASE_DIR / "uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+DEV_SECRET = "dev-secret-change-me-before-launch"
+
+DATABASE_URL = _get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'moagi.db'}")
+# Some hosts hand out postgres://, which SQLAlchemy 1.4+ rejects.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+
+SECRET_KEY = _get("MOAGI_SECRET")
 if not SECRET_KEY and not IS_PROD:
-    SECRET_KEY = "dev-secret-change-me-before-launch"
+    SECRET_KEY = DEV_SECRET
+
 COOKIE_NAME = "moagi_session"
 SESSION_DAYS = 7
-ALLOWED_ORIGINS = [o for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o]
-SEED_DEMO = os.getenv("SEED_DEMO", "true" if not IS_PROD else "false").lower() == "true"
+
+ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in _get("ALLOWED_ORIGINS").split(",") if o.strip()]
+# Optional: comma-separated Host headers the app will answer to (enables TrustedHostMiddleware).
+TRUSTED_HOSTS = [h.strip() for h in _get("TRUSTED_HOSTS").split(",") if h.strip()]
+
+SEED_DEMO = _get("SEED_DEMO", "false" if IS_PROD else "true").lower() == "true"
 
 if IS_PROD:
-    if not SECRET_KEY or SECRET_KEY in ("dev-secret-change-me-before-launch", "dev-secret-change-me"):
-        raise RuntimeError("MOAGI_SECRET must be set to a strong value in production.")
-    if len(SECRET_KEY) < 32:
-        raise RuntimeError("MOAGI_SECRET must be at least 32 characters in production.")
+    problems = []
+    if len(SECRET_KEY) < 32 or SECRET_KEY == DEV_SECRET:
+        problems.append("MOAGI_SECRET must be a random value of at least 32 characters.")
     if not ALLOWED_ORIGINS:
-        raise RuntimeError("ALLOWED_ORIGINS must be set in production.")
+        problems.append("ALLOWED_ORIGINS must be set.")
+    elif any(urlparse(o).scheme != "https" or not urlparse(o).netloc for o in ALLOWED_ORIGINS):
+        problems.append("ALLOWED_ORIGINS entries must be full https:// origins.")
+    if DATABASE_URL.startswith("sqlite"):
+        problems.append("DATABASE_URL must point to PostgreSQL, not SQLite.")
+    if SEED_DEMO:
+        problems.append("SEED_DEMO must be false in production.")
+    if problems:
+        raise RuntimeError("Invalid production configuration:\n- " + "\n- ".join(problems))

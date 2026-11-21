@@ -35,10 +35,12 @@ def _avatar(name: str) -> str:
 
 
 def seed(db: Session) -> None:
-    from .config import SEED_DEMO
+    from .config import IS_PROD, SEED_DEMO
 
-    if not SEED_DEMO:
+    if IS_PROD or not SEED_DEMO:
         return
+    if not DEMO_PASSWORD:
+        raise RuntimeError("Set DEMO_PASSWORD to seed demo data.")
     if db.query(User).count() > 0:
         return
 

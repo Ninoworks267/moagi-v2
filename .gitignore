@@ -1,5 +1,6 @@
 # Python
 .venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -8,16 +9,23 @@ __pycache__/
 .mypy_cache/
 
 # Node
-web/node_modules/
+node_modules/
 web/dist/
 
-# Data and uploads
-*.db
-uploads/
+# Secrets, data and uploads
 .env
 .env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+*.pem
+*.key
 
 # OS/editor
 .DS_Store
+Thumbs.db
 .vscode/
+.idea/
 *.log
